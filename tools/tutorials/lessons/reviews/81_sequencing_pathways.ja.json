@@ -1,0 +1,43 @@
+{
+  "language": "ja",
+  "lesson": "81_sequencing_pathways",
+  "english_sha256": "baad8568aff45f690926d3af5d43d4f471f550aa6b9647ab9130c29b4fdd9b7c",
+  "title": "シーケンシングのモジュールとそのつながり",
+  "section": "ワークフロー",
+  "description": "シーケンシングと光学バーコードのワークフローを、表現型スコア、回帰、実験計画、検出力の推定、用量反応解析、実行の比較につなげます。",
+  "objectives": [
+    "すでにあるデータに応じて、開始するモジュールを選びます。",
+    "各モジュールが何を読み書きするかを把握します。",
+    "次の手順では、リンクされたモジュールのレッスンと API の入出力仕様を参照します。"
+  ],
+  "prerequisite": "spaCR をインストールして Home を開きます。ワークフローの出発点となるデータを選び、リンク先のモジュールのレッスンで操作と例データを確認してください。",
+  "scenes": [
+    "シーケンシングによって、プール型スクリーンはどのガイドがどのウェルや細胞にあるかを知ります。spaCR はそれを二通りの方法で読み込みます。シーケンサーのリードは Map Barcodes へ、サイクルごとに撮影したバーコードは、Mask の中にある OPS へ送ります。どちらの場合も、バーコードの識別は Regression で表現型と並びます。その中心の周りには、撮影前に使う計画用の Experiment Design と Power、結果に使う Dose–Response と Run Compare があります。",
+    "まずシーケンシングリードから始めます。Home から Map Barcodes を開き、シングルエンドかペアエンドの FASTQ ファイルを、実験を符号化したバーコードの参照表とともに渡します。Map Barcodes は各リードをバーコードに対応付け、各ウェルのガイドを数えて、各サンプルの出力フォルダーに unique_combinations.csv と qc.csv を、既定では annotated_reads.h5 も保存します。これらのカウントを信頼する前に、Barcode QC で開いてください。確認を通れば、それが Regression が同じプレートとウェルのキーで表現型スコアと組み合わせるガイドカウントになります。",
+    "Barcode QC は Map Barcodes の中にあるので、Home から Map Barcodes を開き、そこで選びます。作成したばかりのガイドカウントを読み込み、マッピングの深さ、カバレッジ、バーコードの衝突、位置の影響を表示します。QC の結果を書き出せる図と表とともに保存するので、先に進む前にどのガイドを除外するかを決められます。",
+    "どの方法でシーケンシングしても、バーコードと表現型は Regression で出会います。Home から開きます。プール型スクリーンでは、Classify の表現型スコアと Map Barcodes のガイドカウントを受け取ります。光学スクリーンでは、自分で結合して集計したデコード済みの OPS のオブジェクトを受け取ります。これはファイルの直接の受け渡しではありません。直接測定した応答をモデル化することもできます。どの場合も、入力の間でプレートとウェルの識別子が一致している必要があります。応答と対照を選び、当てはめを実行し、何かをヒットと呼ぶ前に診断を読んでください。書き出される結果フォルダーには係数、ヒットの表、設定、図が入っており、この実行をほかの実行と並べたいときに Run Compare が開くのはこのフォルダーです。",
+    "ここで、実験の前に戻りましょう。Home から Power / Design を開くと、選んだ効果の大きさとばらつきをもとに、効果を検出するのに必要なサンプリングの量を推定できます。予備測定でこれらの仮定を裏付けることもできますが、必須ではありません。Power / Design は Experiment Design のプレートマップを読み込まないため、プレート数、プレートあたりのウェル数、反復数は手で入力してください。推定の結果によっては、その設計を見直すことになります。",
+    "何かを撮影する前に、Home から Experiment Design を開いてプレートを設計します。条件、対照、反復、プレートの制約を入力し、プレートマップを書き出します。Power / Design はこのファイルを読み込まないため、そのプレート数と反復数は手で入力し直してください。後で実験を撮影して測定すると、Dose–Response がその用量と条件の識別を使います。そのため、最後まで変えずに保ってください。",
+    "Dose–Response が答えるのは、どのガイドかではなく、どれだけかという問いなので、シーケンシングは必要ありません。Home から開き、Experiment Design の用量と条件の識別とともに、測定した反応を用意します。用量と反応の列、対照、単位を設定してから、曲線を当てはめます。アッセイの結果を、書き出せる図と表とともに保存します。",
+    "解析が二つ以上になったら、Home から Run Compare を開きます。保存された実行記録と Regression の結果を読み込み、設定、カウント、ヒットの一覧を並べて表示します。実行の間で入力データが変わっている場合、その違いは管理されたモデル比較ではないので、その点を踏まえて読んでください。",
+    "もう一つの計画用ツールも、Python でしか使えません。プール型スクリーンのシミュレーションの一括実行、spacr.sim.run_multiple_simulations で、Home のタイルやメニュー項目はありません。スクリーンの規模、占有率、分類器の精度、シーケンシングなどの仮定を設定の辞書として渡します。すべての組み合わせを展開し、それぞれをプロセスプールでシミュレーションして、simulations.db に合成の要約行を追加します。呼び出し自体は None を返します。パラメーターのグリッドは小さくし、実行前に max_workers を明示的に設定してください。出てくるのは計画のための根拠であってデータではなく、Regression で測定値やバーコードのカウントの代わりにはなりません。要約を読み、仮定を記録し、それを手作業で Power / Design か Experiment Design に持ち込んでください。どちらのツールもシミュレーションのデータベースを取り込まないからです。",
+    "このように、スクリーンのバーコードの側は常に同じ形で終わります。識別がプレートとウェルによって表現型と結び付くのです。バーコードの参照とプレートレイアウトはカウントの表と一緒に保管し、光学スクリーンでは、デコードしたオブジェクトを表現型と結合して集計してから Regression に渡します。リンク先のモジュールのレッスンで、各手順の設定と出力を確認できます。"
+  ],
+  "review": {
+    "kind": "AI technical review (Claude Opus 5.5), no native-speaker signoff",
+    "date": "2026-11-01",
+    "translator": "Claude Opus 5.5 (AI), translated from the current English source",
+    "independent_peer_review": false,
+    "native_speaker_signoff": false,
+    "listening_review": false,
+    "scope": "Optical-screen OPS scene removed (OPS is an alpha feature); remaining scene translations unchanged.",
+    "previous_review_sha256": "2e2f67eb2b7fd7dc3ecc43bf0c0c06d351e6754124069fb6079c9fee5a580205",
+    "previous_english_sha256": "b304f2a7f08e52ec9c8618261630dbc0b70e8864ef453ec3268c91c04b8893c6",
+    "previous_review": {
+      "kind": "AI technical review (Claude Opus 5.5), no native-speaker signoff; composed from the workflow-map phrase bank",
+      "independent_peer_review": false,
+      "native_speaker_signoff": false,
+      "listening_review": false
+    }
+  }
+}
