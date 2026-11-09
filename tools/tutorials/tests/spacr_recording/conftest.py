@@ -29,3 +29,6 @@ except ModuleNotFoundError as error:
     raise pytest.UsageError(
         "These tests need a spaCR checkout for its test fixtures: set SPACR_CHECKOUT "
         f"to it or put it on PYTHONPATH ({error})") from error
+# The star import also copies spaCR's suite-wide plugin list, which pytest refuses in a folder conftest
+# when the whole tutorial suite runs; these tests need its fixtures, not those plugins.
+globals().pop("pytest_plugins", None)

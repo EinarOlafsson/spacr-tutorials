@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 
 import pytest
+pytest.importorskip('playwright')  # the browser verifiers import it at module level
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(ROOT), str(ROOT / 'tools'), str(ROOT / 'tools/tutorials')]

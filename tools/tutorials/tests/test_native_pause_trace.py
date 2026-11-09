@@ -2,6 +2,7 @@
 from pathlib import Path
 import sys
 import pytest
+pytest.importorskip('playwright')  # the browser verifiers import it at module level
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from verify_staged_lesson import (check_complete_native_trace, staged_idle_binding,
                                   require_loaded_idle_timings)

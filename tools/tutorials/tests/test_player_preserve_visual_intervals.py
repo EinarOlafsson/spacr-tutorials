@@ -1,6 +1,7 @@
 """Retained visual intervals stay intact without asserting full raw-clip coverage."""
 import json
 import pytest
+pytest.importorskip('playwright')  # the browser verifiers import it at module level
 
 from test_player_complete_native_clips import complete_fixture, open_player
 from test_player_holds_narration import served

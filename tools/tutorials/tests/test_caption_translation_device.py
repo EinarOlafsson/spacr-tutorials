@@ -5,10 +5,15 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 
+import os
+
 import pytest
 
-spec = importlib.util.spec_from_file_location('caption_device',
-    Path(__file__).resolve().parents[3] / 'tools/translate_caption_catalogs.py')
+# translate_caption_catalogs.py stayed in spaCR; conftest.py sets SPACR_CHECKOUT
+TOOL = Path(os.environ.get('SPACR_CHECKOUT', Path(__file__).resolve().parents[3])) / 'tools/translate_caption_catalogs.py'
+if not TOOL.is_file():
+    pytest.skip(f'needs a spaCR checkout with {TOOL.name} (set SPACR_CHECKOUT)', allow_module_level=True)
+spec = importlib.util.spec_from_file_location('caption_device', TOOL)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 

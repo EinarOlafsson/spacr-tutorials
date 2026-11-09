@@ -8,7 +8,8 @@ import pytest
 P=Path(__file__).resolve().parent
 PLAYER=P.parent/"authoring/web/app_v2.js"
 NODE=os.environ.get("SPACR_TUTORIAL_NODE") or shutil.which("node")
-assert NODE and Path(NODE).is_file(), "Set SPACR_TUTORIAL_NODE to an existing Node runtime"
+if not (NODE and Path(NODE).is_file()):
+    pytest.skip("needs a Node runtime: set SPACR_TUTORIAL_NODE or put node on PATH", allow_module_level=True)
 
 def call(visual,audio,index=0):
     node=NODE

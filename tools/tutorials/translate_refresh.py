@@ -24,10 +24,16 @@ os.environ.setdefault('USE_TF', '0')
 os.environ.setdefault('TRANSFORMERS_NO_TF', '1')
 os.environ.setdefault('TOKENIZERS_PARALLELISM', 'false')
 sys.path.insert(0, str(WORKSPACE / 'tools'))
+# translate_catalog.py is also in this repository; used when the staging workspace has no copy
+sys.path.append(str(Path(__file__).resolve().parent / 'authoring' / 'tools'))
 import translate_catalog as spoken
 from narration_audio import split_english_sentences
 
-spec = importlib.util.spec_from_file_location('caption_translator', REPO / 'tools/translate_caption_catalogs.py')
+# translate_caption_catalogs.py stayed in spaCR: use this repository's copy if there is one, else SPACR_CHECKOUT's
+CAPTION_TOOL = next((path for path in (REPO / 'tools/translate_caption_catalogs.py',
+                                       Path(os.environ.get('SPACR_CHECKOUT', REPO)) / 'tools/translate_caption_catalogs.py')
+                     if path.is_file()), REPO / 'tools/translate_caption_catalogs.py')
+spec = importlib.util.spec_from_file_location('caption_translator', CAPTION_TOOL)
 captions = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(captions)
 
