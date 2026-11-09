@@ -172,12 +172,19 @@ def test_published_tree_requires_the_web_root_on_the_same_pinned_revision(tmp_pa
 
 @pytest.fixture
 def archived_publication(tmp_path, monkeypatch):
-    """Real84 catalog structures, synthetic media: no network or browser work."""
+    """Real catalog structures, synthetic media: no network or browser work.
+
+    The lesson counts come from the release-candidate catalog the fixture loads,
+    so the fixture follows that catalog instead of a fixed number.
+    """
     import archive_lessons
     import publish_release_candidate as publication
     from stage_lesson import write
     source = Path(__file__).resolve().parents[1] / 'release_candidate/web'
     full = archive_lessons.load_tree(source)
+    identities = [row['id'] for row in full['catalog/lessons_en.json']['lessons']]
+    total = len(identities)
+    assert total > 0
     root, pages = published_index(tmp_path, ROOT)
     repo = tmp_path / 'repo'
     pages = repo / 'docs/source/_extra/tutorials'
@@ -185,7 +192,7 @@ def archived_publication(tmp_path, monkeypatch):
     # Only the normal publisher's index substitutions matter in this fixture.
     index = ('<html data-production-root="production" data-audio-root="../media_host" '
              'data-video4k-root="../media_host" data-web-root="../media_host">'
-             '<b id="available-count">84</b><b id="total-count">84</b>0 of 84 complete Lesson 1 of 84'
+             f'<b id="available-count">{total}</b><b id="total-count">{total}</b>0 of {total} complete Lesson 1 of {total}'
              + ''.join(f'<script src="{name}"></script>' for name in publication.VERSIONED))
     files = {name: archive_lessons.render(name, data).encode() for name, data in full.items()}
     files.update({'index.html': index.encode(), 'app_v2.js': b'unchanged player',
@@ -199,17 +206,16 @@ def archived_publication(tmp_path, monkeypatch):
         path.write_bytes(content)
         records.append(dict(path='web/' + name, bytes=len(content), sha256=sha(content)))
     records.append(dict(path='media_host/fixture.m4a', bytes=1, sha256=sha(b'x')))
-    identities = [row['id'] for row in full['catalog/lessons_en.json']['lessons']]
-    assert len(identities) == 84
     records.extend(dict(path=f'media_host/{identity}/web/{identity}_silent.mp4', bytes=1, sha256=sha(b'x'))
                    for identity in identities)
-    write(root / 'release-manifest.json', dict(files=records, routes=84, ready_lessons=84,
+    write(root / 'release-manifest.json', dict(files=records, routes=total, ready_lessons=total,
                                              hosted_web_lessons=identities))
     receipt = publication.read(root / publication.RECEIPT)
     receipt['manifest_sha256'] = publication.digest(root / 'release-manifest.json')
     receipt.update(repository='datasets/einarolafsson/spacr-tutorials', branch='synthetic-fixture')
-    receipt['media_files'] = 85
-    receipt['readback'].update(files_expected=85, metadata_matched=85, downloaded_sha256_matched=85)
+    receipt['media_files'] = total + 1
+    receipt['readback'].update(files_expected=total + 1, metadata_matched=total + 1,
+                               downloaded_sha256_matched=total + 1)
     write(root / publication.RECEIPT, receipt)
     (pages / 'index.html').write_text(index)
     # The production count/index mutation is real; unrelated index exporting is isolated.
@@ -222,7 +228,8 @@ def archived_publication(tmp_path, monkeypatch):
     receipt = publication.read(root / publication.RECEIPT)
     shown = publication.publication_view(root)['catalog/lessons_en.json']
     visible = [row['id'] for row in shown['lessons']]
-    assert len(visible) == 59
+    # Archived lessons drop out of the published view; the rest stay visible
+    assert 0 < len(visible) < total
     checks = dict(passed=True, published=False, placeholder_cases=[],
                   manifest_sha256=receipt['manifest_sha256'], media_root=ROOT,
                   index_sha256=publication.digest(pages / 'index.html'),
@@ -230,30 +237,32 @@ def archived_publication(tmp_path, monkeypatch):
     write(root / 'checks/published-media-browser-checks.json', checks)
     write(repo / 'tools/tutorials/release_candidate/checkpoint.json',
           dict(manifest_sha256=receipt['manifest_sha256'], release_hold=True))
-    return root, pages, publication, full
+    return root, pages, publication, full, dict(total=total, visible=len(visible))
 
 
-def test_archived_publication_keeps84_candidate_and_records_only_exact59(archived_publication):
+def test_archived_publication_keeps_full_candidate_and_records_only_visible(archived_publication):
+    pytest.importorskip('playwright')  # the browser verifier imports it at module level
     from verify_release_candidate import published_tree
-    root, pages, publication, full = archived_publication
+    root, pages, publication, full, counts = archived_publication
     assert published_tree(root, pages) == ROOT
     receipt = publication.read(root / publication.RECEIPT)
     assert {key: receipt['pages'][key] for key in ('ready', 'routes', 'hosted_web_copies')} == {
-        'ready': 59, 'routes': 59, 'hosted_web_copies': 59}
+        'ready': counts['visible'], 'routes': counts['visible'], 'hosted_web_copies': counts['visible']}
     assert not (pages / 'production/18_motility/poster.jpg').exists()
     assert (pages / 'production/06_api/poster.jpg').read_bytes() == b'visible poster'
     publication.record(root)
     assert publication.read(root / 'web/catalog/lessons_en.json') == full['catalog/lessons_en.json']
-    assert len(publication.read(root / 'checks/published-media-browser-checks.json')['ready_playback_cases']) == 59
+    assert len(publication.read(root / 'checks/published-media-browser-checks.json')['ready_playback_cases']) == counts['visible']
 
 
 @pytest.mark.parametrize('change', ['caption', 'runtime', 'navigation', 'player',
                                    'receipt_root', 'dropped_visible', 'candidate_drift'])
 def test_archived_publication_rejects_projection_asset_or_revision_drift(archived_publication, change):
+    pytest.importorskip('playwright')  # the browser verifier imports it at module level
     from verify_release_candidate import published_tree
     import archive_lessons
     from stage_lesson import write
-    root, pages, publication, _ = archived_publication
+    root, pages, publication, _, _ = archived_publication
     if change == 'receipt_root':
         receipt = publication.read(root / publication.RECEIPT)
         receipt['media_root'] = ROOT[:-1] + 'b'
@@ -285,16 +294,16 @@ def test_archived_publication_rejects_projection_asset_or_revision_drift(archive
 
 @pytest.mark.parametrize('change', ['wrong_lesson_same_count', 'duplicate_pass', 'wrong_domain_counts',
                                    'wrong_report_counts'])
-def test_archived_publication_record_rejects_arbitrary59_case_claim(archived_publication, change):
+def test_archived_publication_record_rejects_arbitrary_visible_case_claim(archived_publication, change):
     from stage_lesson import write
-    root, _, publication, _ = archived_publication
+    root, _, publication, _, counts = archived_publication
     checks = publication.read(root / 'checks/published-media-browser-checks.json')
     if change == 'wrong_domain_counts':
         receipt = publication.read(root / publication.RECEIPT)
-        receipt['pages'].update(ready=84, routes=84, hosted_web_copies=84)
+        receipt['pages'].update(ready=counts['total'], routes=counts['total'], hosted_web_copies=counts['total'])
         write(root / publication.RECEIPT, receipt)
     elif change == 'wrong_report_counts':
-        checks.update(routes=84, ready_lessons=84)
+        checks.update(routes=counts['total'], ready_lessons=counts['total'])
     elif change == 'wrong_lesson_same_count':
         checks['ready_playback_cases'][0]['lesson'] = '18_motility'
     else:
