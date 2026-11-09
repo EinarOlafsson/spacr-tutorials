@@ -30,6 +30,17 @@ python tools/fetch_docs_media.py publish --group tutorial_archive --source "$SPA
 A docs build fetches the pinned posters and example downloads with
 `python tools/fetch_docs_media.py fetch --group tutorials`.
 
+## Tests
+
+The tooling tests are in `tools/tutorials/tests/`. The ones in
+`tools/tutorials/tests/spacr_recording/` check the recording tools against
+real spaCR widgets and need a spaCR checkout for its `spacr` package and test
+fixtures:
+
+```
+SPACR_CHECKOUT=/path/to/spacr QT_QPA_PLATFORM=offscreen python -m pytest tools/tutorials/tests/spacr_recording
+```
+
 ## Licence
 
 The spaCR software is under the licence in the spaCR repository. The generated
